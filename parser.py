@@ -22,7 +22,7 @@ class Handler(BaseHTTPRequestHandler):
         self.content_disposition = None
         self.profile_web_page_url = None
         self.user_agent = None
-        self.magic_number = 'jynb'  # 记得修改此处幻数
+        self.magic_number = 'local'  # 记得修改此处幻数
         super().__init__(*args, **kwargs)
 
     def log_message(self, format, *args):
@@ -430,22 +430,23 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             parser = query_components.get('parser', [''])[0]
-            parser_split = parser.split('-', 2)
-            if len(parser_split) == 2 and parser_split[0] == self.magic_number:  # 如果为 幻数-123 那么就从本地读取 parser-123.yaml
-                parser_yaml = self.fetch_local_yaml('parser-' + parser_split[1] + '.yaml')
-            elif parser == self.magic_number:  # 如果为 幻数 那么就从本地读取 mixin.yaml
-                parser_yaml = self.fetch_local_yaml('parser.yaml')
-            elif parser:  # 否则尝试解码 base64
-                parser_url = base64.b64decode(parser).decode()
-                parser_yaml = self.fetch_yaml(parser_url)
-            else:  # 不提供 parser 参数就默认从本地获取，因为设计就是为了 parser，也是向前兼容
-                parser_yaml = self.fetch_local_yaml('parser.yaml')
+            if parser != '':
+                parser_split = parser.split('-', 2)
+                if len(parser_split) == 2 and parser_split[0] == self.magic_number:  # 如果为 幻数-123 那么就从本地读取 parser-123.yaml
+                    parser_yaml = self.fetch_local_yaml('parser-' + parser_split[1] + '.yaml')
+                elif parser == self.magic_number:  # 如果为 幻数 那么就从本地读取 mixin.yaml
+                    parser_yaml = self.fetch_local_yaml('parser.yaml')
+                elif parser:  # 否则尝试解码 base64
+                    parser_url = base64.b64decode(parser).decode()
+                    parser_yaml = self.fetch_yaml(parser_url)
+                else:  # 不提供 parser 参数就默认从本地获取，因为设计就是为了 parser，也是向前兼容
+                    parser_yaml = self.fetch_local_yaml('parser.yaml')
 
-            if not parser_yaml:
-                logging.error("Error in fetching parser_yaml: The YAML content could not be retrieved or parsed.")
-                self.send_error(500,
-                                "Error in fetching parser_yaml: The YAML content could not be retrieved or parsed.")
-                return
+                if not parser_yaml:
+                    logging.error("Error in fetching parser_yaml: The YAML content could not be retrieved or parsed.")
+                    self.send_error(500,
+                                    "Error in fetching parser_yaml: The YAML content could not be retrieved or parsed.")
+                    return
 
             mixin = query_components.get('mixin', [''])[0]
             mixin_split = mixin.split('-', 2)
@@ -474,16 +475,19 @@ class Handler(BaseHTTPRequestHandler):
             logging.exception(f"Error in perform mixin: {error}")
             self.send_error(500, f"Error in perform mixin: {error}")
             return
-
-        try:
-            # 进行 parser
-            if source_yaml and parser_yaml:
-                logging.info("Perform parser")
-                modified_yaml = self.modify_yaml(source_yaml, parser_yaml)
-        except Exception as error:
-            logging.exception(f"Error in perform parser: {error}")
-            self.send_error(500, f"Error in perform parser: {error}")
-            return
+        if parser != '':
+            print('123')
+            try:
+                # 进行 parser
+                if source_yaml and parser_yaml:
+                    logging.info("Perform parser")
+                    modified_yaml = self.modify_yaml(source_yaml, parser_yaml)
+            except Exception as error:
+                logging.exception(f"Error in perform parser: {error}")
+                self.send_error(500, f"Error in perform parser: {error}")
+                return
+        else:
+            modified_yaml = source_yaml
 
         if modified_yaml:
             # 发送正确响应
