@@ -9,6 +9,7 @@ import json
 import logging
 import re
 import urllib
+import os
 
 import yaml
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -22,7 +23,7 @@ class Handler(BaseHTTPRequestHandler):
         self.content_disposition = None
         self.profile_web_page_url = None
         self.user_agent = None
-        self.magic_number = 'local'  # 记得修改此处幻数
+        self.magic_number = os.environ.get('MAGIC_NUMBER', 'local') # 记得修改此处幻数
         super().__init__(*args, **kwargs)
 
     def log_message(self, format, *args):
@@ -515,10 +516,12 @@ class Handler(BaseHTTPRequestHandler):
             return
 
 
-def run_server(server_class=HTTPServer, handler_class=Handler, port=8000):
-    server_address = ('127.0.0.1', port)
+def run_server(server_class=HTTPServer, handler_class=Handler):
+    port = int(os.environ.get('SERVER_PORT', 8000))
+    server_address = ('0.0.0.0', port)
     httpd = server_class(server_address, handler_class)
     logging.info(f"Starting HTTP server on port {port}")
+    logging.info(f"Magic number: {os.environ.get('MAGIC_NUMBER', 'local')}")
     httpd.serve_forever()
 
 
